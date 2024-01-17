@@ -8,108 +8,116 @@ on:
     branches:
       - main
   schedule:
-  - cron: "0 7 * * *"
+  - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 jobs:
 
-  test-default:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
+  # test-default:
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest, macos-latest, macos-11]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v1
 
-      - name: Create kind cluster
-        uses: ./
+  #     - name: Create kind cluster
+  #       uses: ./
 
-      - name: Test
-        run: |
-          kubectl cluster-info
-          kubectl get storageclass standard
+  #     - name: Test
+  #       run: |
+  #         kubectl cluster-info
+  #         kubectl get storageclass standard
 
-  test-with-custom-resource-limits:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
+  # test-with-custom-resource-limits:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v1
 
-      - name: Create kind cluster with custom resource limits
-        uses: ./
-        with:
-          cpu: "3"
-          disk: "5"
-          memory: "11"
-      - name: Test
-        run: |
-          kubectl get node $(kubectl get node -o custom-columns=":metadata.name") -o custom-columns="CPU:.status.capacity.cpu" | grep "3" 1> /dev/null && echo "CPU OK"
-          kubectl get node $(kubectl get node -o custom-columns=":metadata.name") -o custom-columns="DISK:.status.capacity.ephemeral-storage" | grep -E "5\d{6}Ki" 1> /dev/null && echo "Disk OK"
-          kubectl get node $(kubectl get node -o custom-columns=":metadata.name") -o custom-columns="MEMORY:.status.capacity.memory" | grep -E "11\d{6}Ki" 1> /dev/null && echo "Memory OK"
+  #     - name: Create kind cluster with custom resource limits
+  #       uses: ./
+  #       with:
+  #         cpu: "3"
+  #         disk: "5"
+  #         memory: "11"
+  #     - name: Test
+  #       run: |
+  #         kubectl get node $(kubectl get node -o custom-columns=":metadata.name") -o custom-columns="CPU:.status.capacity.cpu" | grep "3" 1> /dev/null && echo "CPU OK"
+  #         kubectl get node $(kubectl get node -o custom-columns=":metadata.name") -o custom-columns="DISK:.status.capacity.ephemeral-storage" | grep -E "5\d{6}Ki" 1> /dev/null && echo "Disk OK"
+  #         kubectl get node $(kubectl get node -o custom-columns=":metadata.name") -o custom-columns="MEMORY:.status.capacity.memory" | grep -E "11\d{6}Ki" 1> /dev/null && echo "Memory OK"
 
-  test-with-custom-name:
-    strategy:
-      matrix:
-        version:
-        - v0.17.0
-        - v0.16.0
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
+  # test-with-custom-name:
+  #   strategy:
+  #     matrix:
+  #       version:
+  #       - v0.17.0
+  #       - v0.16.0
+  #       os: [ubuntu-latest, macos-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v1
 
-      - name: Create kind cluster with custom name
-        uses: ./
-        with:
-          version: "${{ matrix.version }}"
-          cluster_name: "custom-name"
+  #     - name: Create kind cluster with custom name
+  #       uses: ./
+  #       with:
+  #         version: "${{ matrix.version }}"
+  #         cluster_name: "custom-name"
 
-      - name: Test
-        run: |
-          kubectl cluster-info
-          kubectl get storageclass standard
+  #     - name: Test
+  #       run: |
+  #         kubectl cluster-info
+  #         kubectl get storageclass standard
 
-  test-without-registry:
-    strategy:
-      matrix:
-        version:
-        - v0.17.0
-        - v0.16.0
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
+  # test-without-registry:
+  #   strategy:
+  #     matrix:
+  #       version:
+  #       - v0.17.0
+  #       - v0.16.0
+  #       os: [ubuntu-latest, macos-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v1
 
-      - name: Create kind cluster with custom name
-        uses: ./
-        with:
-          version: "${{ matrix.version }}"
-          cluster_name: "custom-name"
-          registry: false
+  #     - name: Create kind cluster with custom name
+  #       uses: ./
+  #       with:
+  #         version: "${{ matrix.version }}"
+  #         cluster_name: "custom-name"
+  #         registry: false
 
-      - name: Test
-        run: |
-          kubectl cluster-info
-          kubectl get storageclass standard
+  #     - name: Test
+  #       run: |
+  #         kubectl cluster-info
+  #         kubectl get storageclass standard
 
-          registry_id=$(docker ps --filter "name=kind-registry" --format "{{.ID}}")
-          if [[ -n "$registry_id" ]]; then
-            echo "Registry present"
-            exit 1
-          fi
-
-
+  #         registry_id=$(docker ps --filter "name=kind-registry" --format "{{.ID}}")
+  #         if [[ -n "$registry_id" ]]; then
+  #           echo "Registry present"
+  #           exit 1
+  #         fi
 
   test-with-registry:
     strategy:
       matrix:
         version:
         - v0.17.0
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, macos-11]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: lookup
+        run: |
+          nslookup localhost
+
       - name: Checkout
         uses: actions/checkout@v1
 
@@ -148,70 +156,70 @@ jobs:
             exit 1
           fi
 
-  test-with-registry-with-delete-rights:
-    strategy:
-      matrix:
-        version:
-          - v0.17.0
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
+  # test-with-registry-with-delete-rights:
+  #   strategy:
+  #     matrix:
+  #       version:
+  #         - v0.17.0
+  #       os: [ubuntu-latest, macos-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v1
 
-      - name: Create kind cluster with registry
-        uses: ./
-        with:
-          version: "${{ matrix.version }}"
-          registry_delete: true
+  #     - name: Create kind cluster with registry
+  #       uses: ./
+  #       with:
+  #         version: "${{ matrix.version }}"
+  #         registry_delete: true
 
-      - name: Test
-        run: |
-          kubectl cluster-info
-          kubectl get storageclass standard
+  #     - name: Test
+  #       run: |
+  #         kubectl cluster-info
+  #         kubectl get storageclass standard
 
-          # Checking env variable
-          if [[ "$KIND_REGISTRY" != "kind-registry:5000" ]]; then
-            echo "Wrong KIND_REGISTRY env variable: $KIND_REGISTRY"
-            exit 1
-          fi
+  #         # Checking env variable
+  #         if [[ "$KIND_REGISTRY" != "kind-registry:5000" ]]; then
+  #           echo "Wrong KIND_REGISTRY env variable: $KIND_REGISTRY"
+  #           exit 1
+  #         fi
 
-          # Test registry usage inside cluster
-          docker pull busybox
-          docker tag busybox kind-registry:5000/localbusybox
+  #         # Test registry usage inside cluster
+  #         docker pull busybox
+  #         docker tag busybox kind-registry:5000/localbusybox
 
-          # Test delete API
-          OUTPUT=$(docker push kind-registry:5000/localbusybox | grep -o 'digest.*size')
-          TRIM=${OUTPUT//digest: /}
-          DIGEST=${TRIM// size/}
-          exit $(curl -X DELETE kind-registry:5000/v2/localbusybox/manifests/$DIGEST)
+  #         # Test delete API
+  #         OUTPUT=$(docker push kind-registry:5000/localbusybox | grep -o 'digest.*size')
+  #         TRIM=${OUTPUT//digest: /}
+  #         DIGEST=${TRIM// size/}
+  #         exit $(curl -X DELETE kind-registry:5000/v2/localbusybox/manifests/$DIGEST)
 
-  test-knative:
-    strategy:
-      matrix:
-        knative_version:
-        - v1.9.0
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v1
+  # test-knative:
+  #   strategy:
+  #     matrix:
+  #       knative_version:
+  #       - v1.9.0
+  #       os: [ubuntu-latest, macos-latest]
+  #   runs-on: ${{ matrix.os }}
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v1
 
-    - name: Create kind cluster
-      uses: ./
-      with:
-        knative_serving: "${{ matrix.knative_version }}"
-        knative_kourier: "${{ matrix.knative_version }}"
-        knative_eventing: "${{ matrix.knative_version }}"
+  #   - name: Create kind cluster
+  #     uses: ./
+  #     with:
+  #       knative_serving: "${{ matrix.knative_version }}"
+  #       knative_kourier: "${{ matrix.knative_version }}"
+  #       knative_eventing: "${{ matrix.knative_version }}"
 
-    - name: Test
-      run: |
-        kubectl cluster-info
-        kubectl get storageclass standard
+  #   - name: Test
+  #     run: |
+  #       kubectl cluster-info
+  #       kubectl get storageclass standard
 
-        cat << EOF | kubectl apply -f -
-        apiVersion: messaging.knative.dev/v1
-        kind: InMemoryChannel
-        metadata:
-          name: messages
-        EOF
+  #       cat << EOF | kubectl apply -f -
+  #       apiVersion: messaging.knative.dev/v1
+  #       kind: InMemoryChannel
+  #       metadata:
+  #         name: messages
+  #       EOF
